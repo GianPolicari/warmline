@@ -1,0 +1,661 @@
+<title>Warmline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: una sola pantalla tipo campo de tiro — escenario grande a la izquierda, tablero de ajustes a la derecha. Look oscuro deliberado (único tema). */
+:root{
+  --ink:#0c1418;      /* fondo */
+  --panel:#13202a;    /* superficies */
+  --line:#223540;     /* bordes */
+  --bone:#ece8e1;     /* texto principal */
+  --muted:#8da2ac;    /* texto secundario */
+  --red:#ff4655;      /* acierto / acento */
+  --ice:#5ee0d6;      /* headshot */
+  --gold:#f5c14b;     /* récords y niveles */
+  --f-display:"Chakra Petch","Segoe UI",system-ui,sans-serif;
+  --f-body:"Barlow","Segoe UI",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--bone)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.5}
+.app{max-width:1240px;margin:0 auto;padding-inline:16px;padding-block:18px 28px;display:flex;flex-direction:column;gap:16px}
+.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:14px}
+.brand{display:flex;gap:12px;align-items:center;min-width:0}
+.mark{width:34px;height:34px;flex:none;position:relative}
+.mark::before,.mark::after{content:"";position:absolute;background:var(--red)}
+.mark::before{left:15px;top:0;width:4px;height:34px}
+.mark::after{top:15px;left:0;height:4px;width:34px}
+.brand h1{margin:0;font-family:var(--f-display);font-weight:700;font-size:26px;letter-spacing:.14em;line-height:1}
+.brand p{margin:4px 0 0;color:var(--muted);font-size:14px}
+.modes{display:flex;flex-wrap:wrap;gap:6px}
+.modes button,.pill{font-family:var(--f-display);font-weight:500;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);background:transparent;border:1px solid var(--line);padding:8px 14px;cursor:pointer;clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%)}
+.modes button[aria-selected="true"],.pill[aria-pressed="true"]{color:var(--ink);background:var(--bone);border-color:var(--bone)}
+.modes button:focus-visible,.btn:focus-visible,.sw:focus-visible,.pill:focus-visible{outline:2px solid var(--ice);outline-offset:2px}
+.profile{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;background:var(--panel);border:1px solid var(--line);padding:10px 14px}
+.lvl{display:flex;align-items:center;gap:10px;flex:1 1 260px;min-width:0}
+.lvl b{font-family:var(--f-display);font-size:14px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);white-space:nowrap}
+.xpbar{flex:1;height:8px;background:var(--ink);border:1px solid var(--line);position:relative;min-width:80px}
+#xpFill{position:absolute;inset:0 auto 0 0;width:0;background:var(--gold);transition:width .6s}
+.xpnum{font-family:var(--f-mono);font-size:12px;color:var(--muted);white-space:nowrap}
+.days{font-size:14px;color:var(--muted)}
+.days strong{color:var(--bone);font-family:var(--f-mono)}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:20px;align-items:start}
+@media (max-width:900px){.grid{grid-template-columns:minmax(0,1fr)}}
+.stage{display:flex;flex-direction:column;gap:10px;min-width:0}
+.hud{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
+.hud div{background:var(--panel);padding:8px 12px;min-width:0}
+.hud small{display:block;font-family:var(--f-display);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.hud b{font-family:var(--f-mono);font-size:22px;font-variant-numeric:tabular-nums;font-weight:700}
+#hTime.hot{color:var(--red)}
+#hMult{color:var(--ice)}
+.streak{height:4px;background:var(--line);position:relative;overflow:hidden}
+#hStreak{position:absolute;inset:0 auto 0 0;width:0;background:linear-gradient(90deg,var(--red),var(--gold));transition:width .12s}
+.wrap{position:relative;aspect-ratio:16/9;max-width:100%;background:var(--ink);border:1px solid var(--line);overflow:hidden;touch-action:none}
+canvas{display:block;width:100%;height:100%;cursor:none}
+.feed{position:absolute;top:10px;right:10px;display:flex;flex-direction:column;gap:3px;align-items:flex-end;pointer-events:none}
+.feed span{font-family:var(--f-mono);font-size:11px;background:rgba(12,20,24,.75);padding:2px 7px;border-left:3px solid var(--red);color:var(--bone)}
+.feed span.hs{border-left-color:var(--ice)}
+.ov{position:absolute;inset:0;display:grid;place-items:center;background:rgba(12,20,24,.74);padding:16px;text-align:center}
+.ov-in{display:flex;flex-direction:column;gap:10px;align-items:center;max-width:480px}
+.ov h2{margin:0;font-family:var(--f-display);font-size:clamp(22px,4vw,36px);letter-spacing:.06em;text-wrap:balance}
+.ov p{margin:0;color:var(--muted)}
+.cta{font-family:var(--f-display);font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--red);font-size:14px;animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.45}}
+.btn{font-family:var(--f-display);font-weight:700;letter-spacing:.1em;text-transform:uppercase;font-size:13px;border:1px solid var(--bone);background:var(--bone);color:var(--ink);padding:10px 18px;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--bone)}
+.end-rank{font-family:var(--f-display);font-size:13px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold)}
+.end-score{font-family:var(--f-mono);font-weight:700;font-size:clamp(40px,8vw,72px);line-height:1;font-variant-numeric:tabular-nums}
+.tags{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.tag{font-family:var(--f-display);font-weight:700;color:var(--ink);background:var(--gold);padding:3px 10px;letter-spacing:.14em;font-size:12px;text-transform:uppercase}
+.tag.ice{background:var(--ice)}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:6px 0 4px;width:100%}
+.stats dt{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-family:var(--f-display)}
+.stats dd{margin:0;font-family:var(--f-mono);font-size:18px;font-variant-numeric:tabular-nums}
+@media (max-width:520px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.hud b{font-size:18px}.feed{display:none}}
+.row{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.keys{color:var(--muted);font-size:13px;margin:0}
+.keys kbd{font-family:var(--f-mono);font-size:12px;border:1px solid var(--line);padding:1px 6px;color:var(--bone)}
+.side{display:flex;flex-direction:column;gap:14px;min-width:0}
+.card{background:var(--panel);border:1px solid var(--line);padding:14px;display:flex;flex-direction:column;gap:10px}
+.card h3{margin:0;font-family:var(--f-display);font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);font-weight:500}
+.ladder{list-style:none;margin:0;padding:0;display:flex;flex-direction:column-reverse;gap:2px}
+.ladder li{display:flex;justify-content:space-between;padding:5px 8px;font-size:14px;color:var(--muted)}
+.ladder li span:last-child{font-family:var(--f-mono);font-size:12px;font-variant-numeric:tabular-nums}
+.ladder li.done{color:var(--bone)}
+.ladder li.cur{background:var(--bone);color:var(--ink);font-weight:600}
+.recs{display:flex;flex-direction:column;gap:6px;margin:0}
+.recs div{display:flex;justify-content:space-between;gap:8px}
+.recs dt{color:var(--muted)}
+.recs dd{margin:0;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.sws{display:flex;gap:8px;flex-wrap:wrap}
+.sw{width:26px;height:26px;border:2px solid var(--line);cursor:pointer;padding:0}
+.sw[aria-pressed="true"]{border-color:var(--bone)}
+label{font-size:13px;color:var(--muted);display:flex;flex-direction:column;gap:4px}
+select,input{font-family:var(--f-mono);font-size:14px;background:var(--ink);color:var(--bone);border:1px solid var(--line);padding:6px 8px;width:100%}
+input[type=range]{padding:0}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.out{display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--line);padding-top:8px}
+.out b{font-family:var(--f-mono);font-size:22px;color:var(--ice)}
+.note{font-size:12px;color:var(--muted);margin:0}
+footer{color:var(--muted);font-size:12px}
+@media (prefers-reduced-motion:reduce){.cta{animation:none}#hStreak,#xpFill{transition:none}}
+</style>
+
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <span class="mark" aria-hidden="true"></span>
+      <div>
+        <h1>WARMLINE</h1>
+        <p>Calentamiento de 30 segundos para shooters tácticos. Jugalo mientras esperás la partida.</p>
+      </div>
+    </div>
+    <nav class="modes" role="tablist" aria-label="Modo">
+      <button role="tab" data-mode="flick" aria-selected="true">Flicks</button>
+      <button role="tab" data-mode="head" aria-selected="false">Altura de cabeza</button>
+      <button role="tab" data-mode="daily" aria-selected="false">Desafío del día</button>
+    </nav>
+  </header>
+
+  <div class="profile">
+    <div class="lvl">
+      <b id="lvlName">Nivel 1</b>
+      <div class="xpbar" aria-hidden="true"><span id="xpFill"></span></div>
+      <span class="xpnum" id="xpNum">0 / 500 XP</span>
+    </div>
+    <span class="days">Racha: <strong id="dayStreak">0</strong> días seguidos</span>
+    <button class="pill" id="musicBtn" aria-pressed="false">Música: apagada</button>
+    <button class="pill" id="sfxBtn" aria-pressed="true">Efectos: activados</button>
+  </div>
+
+  <main class="grid">
+    <section class="stage">
+      <div class="hud" aria-live="off">
+        <div><small>Tiempo</small><b id="hTime">30.0</b></div>
+        <div><small>Puntos</small><b id="hScore">0</b></div>
+        <div><small>Multiplicador</small><b id="hMult">x1</b></div>
+        <div><small>Récord</small><b id="hBest">0</b></div>
+      </div>
+      <div class="streak" aria-hidden="true"><span id="hStreak"></span></div>
+      <div class="wrap">
+        <canvas id="cv" aria-label="Campo de tiro"></canvas>
+        <div class="feed" id="feed" aria-hidden="true"></div>
+        <div class="ov" id="startOv">
+          <div class="ov-in">
+            <h2 id="sTitle">Flicks</h2>
+            <p id="sDesc">Blancos por toda la pantalla. La cabeza vale más que el cuerpo.</p>
+            <p>Cada 10 aciertos seguidos sumás 2 segundos extra.</p>
+            <span class="cta">Hacé clic para arrancar</span>
+          </div>
+        </div>
+        <div class="ov" id="endOv" hidden>
+          <div class="ov-in">
+            <span class="end-rank" id="eRank">Sargento</span>
+            <span class="end-score" id="eScore">0</span>
+            <div class="tags">
+              <span class="tag" id="eRec" hidden>Nuevo récord</span>
+              <span class="tag ice" id="eLvl" hidden>Subiste de nivel</span>
+            </div>
+            <p id="eNext">Te faltan 0 pts para el próximo rango</p>
+            <p id="eXp">+0 XP</p>
+            <dl class="stats">
+              <div><dt>Precisión</dt><dd id="eAcc">0%</dd></div>
+              <div><dt>Headshots</dt><dd id="eHs">0%</dd></div>
+              <div><dt>Reacción</dt><dd id="eReact">0 ms</dd></div>
+              <div><dt>Mejor racha</dt><dd id="eStreak">0</dd></div>
+            </dl>
+            <div class="row">
+              <button class="btn" id="again">Otra (R)</button>
+              <button class="btn ghost" id="copy">Copiar resultado</button>
+            </div>
+            <p class="note" id="copied" hidden>Copiado. Pegalo en el chat de tus amigos.</p>
+          </div>
+        </div>
+      </div>
+      <p class="keys"><kbd>R</kbd> reiniciar al instante · <kbd>Esc</kbd> cortar · <kbd>N</kbd> música · <kbd>M</kbd> efectos</p>
+    </section>
+
+    <aside class="side">
+      <div class="card">
+        <h3>Rangos</h3>
+        <ol class="ladder" id="ladder"></ol>
+      </div>
+      <div class="card">
+        <h3>Tus récords</h3>
+        <dl class="recs" id="recs"></dl>
+      </div>
+      <div class="card">
+        <h3>Tu mira</h3>
+        <div class="sws" id="sws"></div>
+        <div class="two">
+          <label for="xStyle">Estilo
+            <select id="xStyle">
+              <option value="cross">Cruz</option>
+              <option value="dot">Punto</option>
+              <option value="both">Cruz + punto</option>
+            </select>
+          </label>
+          <label for="xSize">Tamaño
+            <input type="range" id="xSize" min="3" max="12" value="6">
+          </label>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Sensibilidad a cm/360</h3>
+        <div class="two">
+          <label for="sens">Sens del juego<input id="sens" type="number" step="0.01" min="0.01" value="0.35"></label>
+          <label for="dpi">DPI del mouse<input id="dpi" type="number" step="50" min="50" value="800"></label>
+        </div>
+        <div class="out"><span>cm por vuelta</span><b id="cm360">0</b></div>
+        <div class="out"><span>eDPI</span><b id="edpi">0</b></div>
+        <p class="note">Muchos profesionales juegan con un eDPI de entre 200 y 400.</p>
+      </div>
+    </aside>
+  </main>
+  <footer>Proyecto independiente. Sin relación con Riot Games ni con ningún juego en particular.</footer>
+</div>
+
+<script>
+(() => {
+const $ = s => document.querySelector(s);
+const store = {
+  get(k, d){ try { const v = localStorage.getItem('pr_' + k); return v == null ? d : JSON.parse(v); } catch(e){ return d; } },
+  set(k, v){ try { localStorage.setItem('pr_' + k, JSON.stringify(v)); } catch(e){} }
+};
+const fmt = n => Math.round(n).toLocaleString('es-AR');
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const RANKS = [
+  {n:'Recluta', s:0}, {n:'Cabo', s:2500}, {n:'Sargento', s:5000}, {n:'Teniente', s:8000},
+  {n:'Capitán', s:11000}, {n:'Comandante', s:14500}, {n:'Leyenda', s:18000}
+];
+function rankOf(sc){ let i = 0; RANKS.forEach((r, j) => { if (sc >= r.s) i = j; }); return {i, r:RANKS[i], next:RANKS[i+1]}; }
+const TIERS = {5:'EN RACHA', 10:'IMPARABLE', 15:'DOMINANDO', 20:'INHUMANO', 25:'LEYENDA'};
+
+const MODES = {
+  flick:{label:'Flicks', desc:'Blancos por toda la pantalla. La cabeza vale más que el cuerpo.'},
+  head:{label:'Altura de cabeza', desc:'Asoman sobre la línea, como en una esquina. Dejá la mira donde va a estar la cabeza.'},
+  daily:{label:'Desafío del día', desc:'Los mismos blancos para todos hoy. Comparalo con tus amigos.'}
+};
+const dateKey = d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+const today = dateKey(new Date());
+const yesterday = dateKey(new Date(Date.now() - 864e5));
+function mulberry32(a){ return function(){ a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+// ---- récords, XP y racha de días
+function bestKey(m){ return m === 'daily' ? 'best_daily_' + today : 'best_' + m; }
+function getBest(m){ return store.get(bestKey(m), 0); }
+const need = l => 500 + (l - 1) * 250;
+function levelFrom(xp){ let l = 1; while (xp >= need(l)){ xp -= need(l); l++; } return {l, into:xp, need:need(l)}; }
+function renderProfile(){
+  const xp = store.get('xp', 0), lv = levelFrom(xp);
+  $('#lvlName').textContent = 'Nivel ' + lv.l;
+  $('#xpFill').style.width = (lv.into / lv.need * 100) + '%';
+  $('#xpNum').textContent = fmt(lv.into) + ' / ' + fmt(lv.need) + ' XP';
+  const ds = store.get('days', {last:'', n:0});
+  $('#dayStreak').textContent = (ds.last === today || ds.last === yesterday) ? ds.n : 0;
+}
+function bumpDays(){
+  const ds = store.get('days', {last:'', n:0});
+  if (ds.last === today) return;
+  ds.n = ds.last === yesterday ? ds.n + 1 : 1; ds.last = today; store.set('days', ds);
+}
+
+// ---- mira
+const COLORS = ['#ece8e1','#5ee0d6','#f5f06a','#ff5fd2','#7dff8a'];
+const xh = store.get('xh', {c:'#5ee0d6', s:'both', z:6});
+function renderSwatches(){
+  $('#sws').innerHTML = COLORS.map(c => `<button class="sw" style="background:${c}" data-c="${c}" aria-label="Color de mira ${c}" aria-pressed="${xh.c===c}"></button>`).join('');
+}
+$('#sws').addEventListener('click', e => { const b = e.target.closest('.sw'); if(!b) return; xh.c = b.dataset.c; store.set('xh', xh); renderSwatches(); });
+$('#xStyle').value = xh.s; $('#xSize').value = xh.z;
+$('#xStyle').addEventListener('change', e => { xh.s = e.target.value; store.set('xh', xh); });
+$('#xSize').addEventListener('input', e => { xh.z = +e.target.value; store.set('xh', xh); });
+renderSwatches();
+
+// ---- conversor de sensibilidad (0.07 grados por unidad)
+function calcSens(){
+  const s = parseFloat($('#sens').value), d = parseFloat($('#dpi').value);
+  if (!(s > 0 && d > 0)) { $('#cm360').textContent = '—'; $('#edpi').textContent = '—'; return; }
+  $('#cm360').textContent = (360 / (0.07 * s * d) * 2.54).toFixed(1);
+  $('#edpi').textContent = fmt(s * d);
+  store.set('sens', {s, d});
+}
+const sv = store.get('sens', null); if (sv){ $('#sens').value = sv.s; $('#dpi').value = sv.d; }
+$('#sens').addEventListener('input', calcSens); $('#dpi').addEventListener('input', calcSens); calcSens();
+
+function renderSide(){
+  const top = Math.max(getBest('flick'), getBest('head'), getBest('daily'));
+  const cur = rankOf(top).i;
+  $('#ladder').innerHTML = RANKS.map((r, i) => `<li class="${i===cur?'cur':i<cur?'done':''}"><span>${r.n}</span><span>${fmt(r.s)}</span></li>`).join('');
+  $('#recs').innerHTML = Object.keys(MODES).map(m => `<div><dt>${MODES[m].label}${m==='daily'?' (hoy)':''}</dt><dd>${fmt(getBest(m))}</dd></div>`).join('');
+  $('#hBest').textContent = fmt(getBest(G.mode));
+  renderProfile();
+}
+
+// ---- audio: efectos
+let ac = null, sfxOn = store.get('sfx', true), musicOn = store.get('music', false);
+let sfxBus = null, musicBus = null, noiseBuf = null;
+function audio(){
+  if (ac) return ac;
+  try {
+    ac = new (window.AudioContext || window.webkitAudioContext)();
+    const comp = ac.createDynamicsCompressor(); comp.connect(ac.destination);
+    sfxBus = ac.createGain(); sfxBus.gain.value = 1; sfxBus.connect(comp);
+    musicBus = ac.createGain(); musicBus.gain.value = 0; musicBus.connect(comp);
+    noiseBuf = ac.createBuffer(1, ac.sampleRate * .5, ac.sampleRate);
+    const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  } catch(e){ ac = null; }
+  return ac;
+}
+function tone(bus, freq, t, dur, type, vol, filt){
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, t);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + .005); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  if (filt){ const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = filt; o.connect(f); f.connect(g); } else o.connect(g);
+  g.connect(bus); o.start(t); o.stop(t + dur + .02);
+}
+function noise(bus, t, dur, vol, type, freq){
+  const s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+  s.buffer = noiseBuf; f.type = type; f.frequency.value = freq;
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  s.connect(f); f.connect(g); g.connect(bus); s.start(t); s.stop(t + dur + .02);
+}
+function sfx(freq, dur, type, vol, delay){
+  if (!sfxOn || !audio()) return;
+  tone(sfxBus, freq, ac.currentTime + (delay || 0), dur, type || 'sine', vol || .08);
+}
+const PENTA = [0, 3, 5, 7, 10, 12, 15, 17, 19, 22, 24, 27, 29];
+const noteF = i => 440 * Math.pow(2, PENTA[Math.min(i, PENTA.length - 1)] / 12);
+
+// ---- audio: soundtrack generativo que sube con la racha
+const BPM = 126, STEP = 60 / BPM / 4;
+const BASS = [55, 43.65, 65.41, 49];            // La, Fa, Do, Sol
+const CHORDS = [[220, 261.63, 329.63], [174.61, 220, 261.63], [261.63, 329.63, 392], [196, 246.94, 293.66]];
+let step = 0, nextT = 0, schedTimer = null;
+function intensity(){ if (!G.running) return 0; return Math.min(4, mult()); }
+function schedule(){
+  if (!ac) return;
+  while (nextT < ac.currentTime + .12){
+    const t = nextT, s = step % 16, bar = Math.floor(step / 16) % 4, L = intensity();
+    if (s % 4 === 0){ // bombo en negras
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(42, t + .13);
+      g.gain.setValueAtTime(L ? .9 : .45, t); g.gain.exponentialRampToValueAtTime(.0001, t + .22);
+      o.connect(g); g.connect(musicBus); o.start(t); o.stop(t + .25);
+    }
+    if (s % 2 === 0) tone(musicBus, BASS[bar] * (s % 4 === 2 ? 2 : 1), t, STEP * 1.7, 'sawtooth', L ? .16 : .08, 380 + L * 160);
+    if (s === 0) CHORDS[bar].forEach(f => tone(musicBus, f, t, STEP * 15, 'triangle', .035, 1800));
+    if (L >= 1 && s % 4 === 2) noise(musicBus, t, .05, .22, 'highpass', 7000);
+    if (L >= 2 && (s === 4 || s === 12)) noise(musicBus, t, .12, .35, 'bandpass', 1500);
+    if (L >= 2 && s % 2 === 1) noise(musicBus, t, .025, .08, 'highpass', 9000);
+    if (L >= 3){ const c = CHORDS[bar]; tone(musicBus, c[s % 3] * 2, t, STEP * .9, 'square', .035, 2600); }
+    if (L >= 4 && s % 8 === 0) tone(musicBus, CHORDS[bar][2] * 4, t, STEP * 3, 'sawtooth', .04, 3200);
+    nextT += STEP; step++;
+  }
+}
+function setMusic(on){
+  musicOn = on; store.set('music', on);
+  $('#musicBtn').setAttribute('aria-pressed', on); $('#musicBtn').textContent = 'Música: ' + (on ? 'sonando' : 'apagada');
+  if (!audio()) return;
+  if (ac.state === 'suspended') ac.resume();
+  musicBus.gain.cancelScheduledValues(ac.currentTime);
+  musicBus.gain.setTargetAtTime(on ? .55 : 0, ac.currentTime, .15);
+  if (on && !schedTimer){ nextT = ac.currentTime + .05; step = 0; schedTimer = setInterval(schedule, 25); }
+  if (!on && schedTimer){ setTimeout(() => { if (!musicOn){ clearInterval(schedTimer); schedTimer = null; } }, 600); }
+}
+function setSfx(on){
+  sfxOn = on; store.set('sfx', on);
+  $('#sfxBtn').setAttribute('aria-pressed', on); $('#sfxBtn').textContent = 'Efectos: ' + (on ? 'activados' : 'silenciados');
+}
+$('#musicBtn').addEventListener('click', () => { musicPending = false; setMusic(!musicOn); });
+$('#sfxBtn').addEventListener('click', () => setSfx(!sfxOn));
+setSfx(sfxOn);
+$('#musicBtn').setAttribute('aria-pressed', false); // la música arranca con el primer clic si estaba prendida
+let musicPending = musicOn; musicOn = false;
+
+// ---- canvas
+const cv = $('#cv'), ctx = cv.getContext('2d');
+let W = 800, H = 450, DPR = 1;
+function resize(){
+  const r = cv.getBoundingClientRect(); if (!r.width) return;
+  DPR = Math.min(2, window.devicePixelRatio || 1); W = r.width; H = r.height;
+  cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR); ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+new ResizeObserver(resize).observe(cv); resize();
+const headR = () => Math.max(9, Math.min(W, H * 16/9) * 0.0135);
+const horizon = () => H * .46;
+
+// ---- estado del juego
+const G = { mode:'flick', running:false, over:false, t0:0, dur:30000, targets:[], parts:[], floats:[],
+  score:0, shots:0, hits:0, heads:0, streak:0, bestStreak:0, reacts:[], nextSpawn:0, rng:Math.random,
+  flash:0, shake:0, banner:null, lastTick:0, mx:-99, my:-99, inside:false };
+
+function mult(){ return 1 + Math.min(4, Math.floor(G.streak / 5)); }
+function life(){ return G.mode === 'head' ? Math.max(650, 1300 - G.streak * 15) : Math.max(700, 1500 - G.streak * 18); }
+function cap(){ return G.mode === 'head' ? 1 : (G.streak >= 15 ? 3 : 2); }
+
+function spawn(now){
+  const r = headR(), rnd = G.rng;
+  if (G.mode === 'head'){
+    G.targets.push({x:W * .1 + rnd() * W * .8, y:horizon(), r, born:now, life:life(), dir:rnd() < .5 ? -1 : 1});
+    return;
+  }
+  let x, y, tries = 0;
+  do { x = W * .07 + rnd() * W * .86; y = H * .13 + rnd() * H * .5; tries++; }
+  while (tries < 10 && G.targets.some(t => Math.hypot(t.x - x, t.y - y) < r * 7));
+  G.targets.push({x, y, r, born:now, life:life(), dir:0});
+}
+function tx(t, now){ if (!t.dir) return t.x; const p = Math.min(1, (now - t.born) / 140); return t.x + (1 - p) * (1 - p) * t.r * 4 * t.dir; }
+function hitTest(t, x, y, now){
+  const cx = tx(t, now);
+  if (Math.hypot(x - cx, y - t.y) <= t.r * 1.05) return 'head';
+  if (x >= cx - t.r * 1.3 && x <= cx + t.r * 1.3 && y >= t.y + t.r * .95 && y <= t.y + t.r * 4.6) return 'body';
+  return null;
+}
+
+function start(){
+  resize(); audio();
+  if (ac && ac.state === 'suspended') ac.resume();
+  if (musicPending){ musicPending = false; setMusic(true); }
+  G.running = true; G.over = false; G.t0 = performance.now(); G.dur = 30000;
+  G.targets = []; G.parts = []; G.floats = []; G.banner = null; G.lastTick = 0;
+  G.score = G.shots = G.hits = G.heads = G.streak = G.bestStreak = 0; G.reacts = [];
+  G.nextSpawn = G.t0 + 200;
+  G.rng = G.mode === 'daily' ? mulberry32(parseInt(today.replace(/-/g,''), 10)) : Math.random;
+  $('#startOv').hidden = true; $('#endOv').hidden = true; $('#feed').innerHTML = '';
+  $('#hScore').textContent = '0'; $('#hMult').textContent = 'x1'; $('#hStreak').style.width = '0';
+  sfx(660, .08, 'square', .04); sfx(990, .1, 'square', .04, .08);
+}
+
+function addFloat(x, y, text, color, big){ G.floats.push({x, y, text, color, big, born:performance.now()}); }
+function burst(x, y, color, n){
+  if (reduced) return;
+  for (let i = 0; i < n; i++){ const a = Math.random() * Math.PI * 2, v = 60 + Math.random() * 240;
+    G.parts.push({x, y, vx:Math.cos(a) * v, vy:Math.sin(a) * v, born:performance.now(), color}); }
+}
+function feed(zone, ms){
+  const f = $('#feed'), s = document.createElement('span');
+  s.className = zone === 'head' ? 'hs' : ''; s.textContent = (zone === 'head' ? 'CABEZA ' : 'CUERPO ') + Math.round(ms) + ' ms';
+  f.prepend(s); while (f.children.length > 5) f.lastChild.remove();
+}
+
+function shoot(x, y){
+  const now = performance.now(); G.shots++;
+  for (let i = G.targets.length - 1; i >= 0; i--){
+    const t = G.targets[i], zone = hitTest(t, x, y, now);
+    if (!zone) continue;
+    G.targets.splice(i, 1);
+    const prevMult = mult();
+    G.streak++; G.bestStreak = Math.max(G.bestStreak, G.streak); G.hits++;
+    const react = now - t.born; G.reacts.push(react);
+    const pts = ((zone === 'head' ? 250 : 100) + Math.max(0, Math.round((1 - react / t.life) * 100))) * mult();
+    G.score += pts; feed(zone, react);
+    const f = noteF(G.streak - 1);
+    if (zone === 'head'){
+      G.heads++; G.flash = reduced ? 0 : 1; G.shake = reduced ? 0 : 6;
+      addFloat(x, y, 'HEADSHOT +' + fmt(pts), '#5ee0d6', true); burst(x, y, '#5ee0d6', 18);
+      sfx(f, .1, 'triangle', .08); sfx(f * 1.5, .16, 'sine', .07, .05); if (sfxOn && audio()) noise(sfxBus, ac.currentTime, .06, .15, 'highpass', 5000);
+    } else {
+      addFloat(x, y, '+' + fmt(pts), '#ff4655', false); burst(x, y, '#ff4655', 9);
+      sfx(f, .09, 'triangle', .07);
+    }
+    if (TIERS[G.streak] || (G.streak > 25 && G.streak % 5 === 0)){
+      const bonus = G.streak % 10 === 0;
+      if (bonus) G.dur += 2000;
+      G.banner = {text:TIERS[G.streak] || 'LEYENDA x' + G.streak, sub:bonus ? '+2 SEGUNDOS' : 'x' + mult() + ' MULTIPLICADOR', born:now};
+      G.shake = reduced ? 0 : 10;
+      [0, 4, 7, 12].forEach((s, k) => sfx(440 * Math.pow(2, (s + 12) / 12), .14, 'square', .035, k * .06));
+    } else if (mult() > prevMult){
+      addFloat(W / 2, H * .2, 'x' + mult() + ' MULTIPLICADOR', '#f5c14b', true);
+    }
+    G.nextSpawn = G.mode === 'head' ? now + 150 + G.rng() * 350 : now;
+    return;
+  }
+  if (G.streak >= 5) addFloat(x, y, 'racha perdida', '#8da2ac', false);
+  G.streak = 0; sfx(110, .14, 'sawtooth', .045); burst(x, y, '#8da2ac', 4);
+}
+
+function finish(aborted){
+  G.running = false; G.banner = null;
+  if (aborted){ $('#startOv').hidden = false; return; }
+  G.over = true; G.targets = [];
+  const prev = getBest(G.mode), rec = G.score > prev && G.score > 0;
+  if (rec) store.set(bestKey(G.mode), G.score);
+  const before = levelFrom(store.get('xp', 0)).l;
+  const gain = Math.round(G.score / 10) + 50;
+  store.set('xp', store.get('xp', 0) + gain);
+  const up = levelFrom(store.get('xp', 0)).l > before;
+  bumpDays();
+  const rk = rankOf(G.score);
+  $('#eRank').textContent = rk.r.n;
+  $('#eRec').hidden = !rec; $('#eLvl').hidden = !up;
+  if (up) $('#eLvl').textContent = 'Nivel ' + levelFrom(store.get('xp', 0)).l;
+  let next = rk.next ? `Te faltan ${fmt(rk.next.s - G.score)} pts para ${rk.next.n}` : 'Rango máximo. Ahora andá a ganar la partida.';
+  if (!rec && prev > 0) next += ` · a ${fmt(prev - G.score)} de tu récord`;
+  $('#eNext').textContent = next;
+  $('#eXp').textContent = '+' + fmt(gain) + ' XP';
+  $('#eAcc').textContent = (G.shots ? Math.round(G.hits / G.shots * 100) : 0) + '%';
+  $('#eHs').textContent = (G.hits ? Math.round(G.heads / G.hits * 100) : 0) + '%';
+  $('#eReact').textContent = (G.reacts.length ? Math.round(G.reacts.reduce((a, b) => a + b, 0) / G.reacts.length) : 0) + ' ms';
+  $('#eStreak').textContent = G.bestStreak;
+  $('#copied').hidden = true;
+  $('#endOv').hidden = false;
+  // conteo del puntaje
+  const target = G.score, t0 = performance.now(), el = $('#eScore');
+  (function count(){ const p = reduced ? 1 : Math.min(1, (performance.now() - t0) / 700);
+    el.textContent = fmt(target * (1 - Math.pow(1 - p, 3))); if (p < 1) requestAnimationFrame(count); })();
+  if (rec || up) [523, 659, 784, 1047, 1319].forEach((f, i) => sfx(f, .2, 'triangle', .06, i * .08));
+  else sfx(392, .22, 'triangle', .05);
+  renderSide();
+}
+
+// ---- dibujo
+function drawScene(){
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#10202a'); g.addColorStop(.55, '#0f1b22'); g.addColorStop(1, '#0a1115');
+  ctx.fillStyle = g; ctx.fillRect(-20, -20, W + 40, H + 40);
+  ctx.strokeStyle = 'rgba(141,162,172,.08)'; ctx.lineWidth = 1;
+  const hz = H * .72;
+  for (let i = -10; i <= 10; i++){ ctx.beginPath(); ctx.moveTo(W / 2 + i * W * .02, hz); ctx.lineTo(W / 2 + i * W * .16, H); ctx.stroke(); }
+  for (let i = 1; i < 7; i++){ const y = hz + (H - hz) * Math.pow(i / 7, 1.8); ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+  if (G.running && mult() >= 3){ // el ambiente se calienta con la racha
+    ctx.fillStyle = `rgba(255,70,85,${(mult() - 2) * .025})`; ctx.fillRect(0, 0, W, H);
+  }
+  if (G.mode === 'head'){
+    ctx.setLineDash([6, 8]); ctx.strokeStyle = 'rgba(94,224,214,.35)';
+    ctx.beginPath(); ctx.moveTo(0, horizon()); ctx.lineTo(W, horizon()); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(94,224,214,.55)'; ctx.font = '600 11px Barlow, sans-serif'; ctx.fillText('ALTURA DE CABEZA', 12, horizon() - 8);
+  }
+}
+function drawTarget(t, now, alpha){
+  const x = tx(t, now), y = t.y, r = t.r, age = (now - t.born) / t.life;
+  ctx.save(); ctx.globalAlpha = alpha;
+  const bg = ctx.createLinearGradient(0, y + r, 0, y + r * 4.6);
+  bg.addColorStop(0, 'rgba(236,232,225,.92)'); bg.addColorStop(1, 'rgba(236,232,225,.15)');
+  ctx.fillStyle = bg; ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(x - r * 1.3, y + r * .95, r * 2.6, r * 3.65, r * .6); else ctx.rect(x - r * 1.3, y + r * .95, r * 2.6, r * 3.65);
+  ctx.fill();
+  ctx.fillStyle = '#ece8e1'; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#ff4655'; ctx.lineWidth = 2; ctx.stroke();
+  if (G.running){
+    ctx.strokeStyle = age > .7 ? '#ff4655' : 'rgba(255,70,85,.55)'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(x, y, r + 5, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (1 - Math.min(1, age))); ctx.stroke();
+  }
+  ctx.restore();
+}
+function drawBanner(now){
+  const b = G.banner; if (!b) return;
+  const p = (now - b.born) / 1100; if (p >= 1){ G.banner = null; return; }
+  const sc = reduced ? 1 : (p < .12 ? .6 + p / .12 * .5 : 1.1 - Math.min(.1, (p - .12)));
+  ctx.save(); ctx.globalAlpha = p > .75 ? (1 - p) / .25 : 1;
+  ctx.translate(W / 2, H * .42); ctx.scale(sc, sc); ctx.textAlign = 'center';
+  ctx.font = `700 ${Math.round(Math.min(64, W * .07))}px "Chakra Petch", sans-serif`;
+  ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillText(b.text, 3, 3);
+  ctx.fillStyle = '#f5c14b'; ctx.fillText(b.text, 0, 0);
+  ctx.font = `600 ${Math.round(Math.min(20, W * .025))}px "Chakra Petch", sans-serif`;
+  ctx.fillStyle = '#ece8e1'; ctx.fillText(b.sub, 0, Math.min(34, W * .04));
+  ctx.restore();
+}
+function drawCrosshair(){
+  if (!G.inside) return;
+  const x = Math.round(G.mx) + .5, y = Math.round(G.my) + .5, z = xh.z, gap = 3, lines = [];
+  if (xh.s !== 'dot') lines.push([x - gap - z, y, x - gap, y], [x + gap, y, x + gap + z, y], [x, y - gap - z, x, y - gap], [x, y + gap, x, y + gap + z]);
+  ctx.strokeStyle = 'rgba(0,0,0,.85)'; ctx.lineWidth = 4;
+  lines.forEach(l => { ctx.beginPath(); ctx.moveTo(l[0], l[1]); ctx.lineTo(l[2], l[3]); ctx.stroke(); });
+  ctx.strokeStyle = xh.c; ctx.lineWidth = 2;
+  lines.forEach(l => { ctx.beginPath(); ctx.moveTo(l[0], l[1]); ctx.lineTo(l[2], l[3]); ctx.stroke(); });
+  if (xh.s !== 'cross'){ ctx.fillStyle = 'rgba(0,0,0,.85)'; ctx.fillRect(x - 2.5, y - 2.5, 5, 5); ctx.fillStyle = xh.c; ctx.fillRect(x - 1.5, y - 1.5, 3, 3); }
+}
+
+let lastHud = '';
+function frame(now){
+  requestAnimationFrame(frame);
+  if (G.running){
+    const left = G.dur - (now - G.t0);
+    if (left <= 0) finish(false);
+    else {
+      for (let i = G.targets.length - 1; i >= 0; i--){
+        const t = G.targets[i];
+        if (now - t.born > t.life){
+          G.targets.splice(i, 1);
+          if (G.streak >= 5) addFloat(t.x, t.y - t.r * 2, 'se escapó', '#8da2ac', false);
+          G.streak = 0; sfx(150, .08, 'sine', .03);
+          if (G.mode === 'head') G.nextSpawn = now + 200;
+        }
+      }
+      while (G.targets.length < cap() && now >= G.nextSpawn){ spawn(now); if (G.mode === 'head') break; }
+      const sec = Math.ceil(left / 1000);
+      if (left < 5000 && sec !== G.lastTick){ G.lastTick = sec; sfx(sec <= 1 ? 1320 : 880, .05, 'square', .03); }
+      const hud = left.toFixed(1) + '|' + G.score + '|' + mult() + '|' + G.streak;
+      if (hud !== lastHud){
+        lastHud = hud;
+        const tEl = $('#hTime'); tEl.textContent = left < 5000 ? (left / 1000).toFixed(1) : Math.ceil(left / 1000) + '.0';
+        tEl.classList.toggle('hot', left < 5000);
+        $('#hScore').textContent = fmt(G.score);
+        $('#hMult').textContent = 'x' + mult();
+        $('#hStreak').style.width = (mult() >= 5 ? 100 : (G.streak % 5) / 5 * 100) + '%';
+      }
+    }
+  }
+  ctx.save();
+  if (G.shake > .2){ ctx.translate((Math.random() - .5) * G.shake, (Math.random() - .5) * G.shake); G.shake *= .85; } else G.shake = 0;
+  drawScene();
+  if (G.running) G.targets.forEach(t => drawTarget(t, now, 1));
+  else if (!G.over){
+    const r = headR();
+    drawTarget({x:W * .3, y:H * .38, r, born:now, life:1, dir:0}, now, .45);
+    drawTarget({x:W * .68, y:H * .3, r, born:now, life:1, dir:0}, now, .45);
+  }
+  G.parts = G.parts.filter(p => now - p.born < 420);
+  G.parts.forEach(p => { const k = (now - p.born) / 1000; ctx.globalAlpha = 1 - (now - p.born) / 420;
+    ctx.fillStyle = p.color; ctx.fillRect(p.x + p.vx * k - 1.5, p.y + p.vy * k - 1.5, 3, 3); });
+  ctx.globalAlpha = 1;
+  G.floats = G.floats.filter(f => now - f.born < 800);
+  G.floats.forEach(f => { const p = (now - f.born) / 800;
+    ctx.globalAlpha = 1 - p; ctx.textAlign = 'center';
+    ctx.font = (f.big ? '700 18px' : '600 14px') + ' "Chakra Petch", sans-serif';
+    ctx.fillStyle = f.color; ctx.fillText(f.text, f.x, f.y - 18 - p * 30); });
+  ctx.globalAlpha = 1; ctx.textAlign = 'start';
+  drawBanner(now);
+  if (G.flash > 0){ ctx.fillStyle = `rgba(94,224,214,${G.flash * .1})`; ctx.fillRect(-20, -20, W + 40, H + 40); G.flash = Math.max(0, G.flash - .08); }
+  ctx.restore();
+  drawCrosshair();
+}
+requestAnimationFrame(frame);
+
+// ---- controles
+function pos(e){ const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+cv.addEventListener('pointermove', e => { [G.mx, G.my] = pos(e); G.inside = true; });
+cv.addEventListener('pointerleave', () => { G.inside = false; });
+cv.addEventListener('pointerdown', e => { e.preventDefault(); [G.mx, G.my] = pos(e); G.inside = true; if (G.running) shoot(G.mx, G.my); });
+$('#startOv').addEventListener('pointerdown', e => { e.preventDefault(); [G.mx, G.my] = pos(e); start(); });
+$('#again').addEventListener('click', start);
+$('#copy').addEventListener('click', () => {
+  const acc = G.shots ? Math.round(G.hits / G.shots * 100) : 0;
+  const txt = `WARMLINE · ${MODES[G.mode].label}${G.mode==='daily'?' '+today:''}: ${fmt(G.score)} pts (${rankOf(G.score).r.n}) · precisión ${acc}% · mejor racha ${G.bestStreak}. ¿Me ganás?`;
+  const ok = () => { $('#copied').hidden = false; };
+  try { navigator.clipboard.writeText(txt).then(ok, () => { $('#copied').textContent = txt; ok(); }); }
+  catch(e){ $('#copied').textContent = txt; ok(); }
+});
+document.addEventListener('keydown', e => {
+  if (e.target.matches('input,select')) return;
+  const k = e.key.toLowerCase();
+  if (k === 'r'){ e.preventDefault(); start(); }
+  else if (k === 'escape' && G.running) finish(true);
+  else if (k === 'm') setSfx(!sfxOn);
+  else if (k === 'n'){ musicPending = false; setMusic(!musicOn); }
+});
+document.querySelectorAll('.modes button').forEach(b => b.addEventListener('click', () => {
+  if (G.running) finish(true);
+  G.mode = b.dataset.mode; G.over = false;
+  document.querySelectorAll('.modes button').forEach(x => x.setAttribute('aria-selected', x === b));
+  $('#sTitle').textContent = MODES[G.mode].label; $('#sDesc').textContent = MODES[G.mode].desc;
+  $('#endOv').hidden = true; $('#startOv').hidden = false;
+  renderSide();
+}));
+renderSide();
+})();
+</script>
